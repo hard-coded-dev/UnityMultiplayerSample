@@ -4,20 +4,17 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class CanvasManager : MonoBehaviour
+public class CanvasManager : Singleton<CanvasManager>
 {
+    public GameObject deadUI;
+
     public Toggle prediction;
     public Toggle reconciliation;
     public Toggle interpolation;
     public TMP_InputField lagTimeField;
-    public static CanvasManager Instance { get; private set; } = null;
 
     private void Awake()
     {
-        if( Instance != null && Instance != this )
-            Destroy( gameObject );
-        else
-            Instance = this;
     }
 
     void Start()
@@ -30,8 +27,7 @@ public class CanvasManager : MonoBehaviour
         float newLag;
         if( float.TryParse( lagTimeField.text, out newLag ) )
         {
-            NetworkMan.Instance.estimatedLag = newLag;
+            //NetworkManager.Instance.estimatedLag = newLag;
         }
-        
     }
 }
