@@ -5,12 +5,14 @@ using Unity.Networking.Transport;
 using NetworkMessages;
 using System;
 using System.Text;
+using System.Collections.Generic;
 
 public class NetworkServer : MonoBehaviour
 {
     public NetworkDriver m_Driver;
     public ushort serverPort;
     private NativeList<NetworkConnection> m_Connections;
+    private PlayerUnitManager playersManager;
 
     void Start ()
     {
@@ -18,13 +20,15 @@ public class NetworkServer : MonoBehaviour
         var endpoint = NetworkEndPoint.AnyIpv4;
         endpoint.Port = serverPort;
         if (m_Driver.Bind(endpoint) != 0)
-            Debug.Log("Failed to bind to port " + serverPort);
+            Debug.Log( "[Server] Failed to bind to port " + serverPort);
         else
             m_Driver.Listen();
 
         m_Connections = new NativeList<NetworkConnection>(16, Allocator.Persistent);
+
+        playersManager = new PlayerUnitManager();
     }
-    void SendToServer(string message, NetworkConnection c){
+    void SendToClient(string message, NetworkConnection c){
         var writer = m_Driver.BeginSend(NetworkPipeline.Null, c);
         NativeArray<byte> bytes = new NativeArray<byte>(Encoding.ASCII.GetBytes(message),Allocator.Temp);
         writer.WriteBytes(bytes);
@@ -38,12 +42,13 @@ public class NetworkServer : MonoBehaviour
 
     void OnConnect(NetworkConnection c){
         m_Connections.Add(c);
-        Debug.Log("Accepted a connection");
+        Debug.Log( "[Server] Accepted a connection : " + c.InternalId );
+        playersManager.NewPlayer( c.InternalId );
 
-        //// Example to send a handshake message:
-        // HandshakeMsg m = new HandshakeMsg();
-        // m.player.id = c.InternalId.ToString();
-        // SendToServer(JsonUtility.ToJson(m),c);        
+        // Example to send a handshake message:
+        HandshakeMsg m = new HandshakeMsg();
+        m.player.id = c.InternalId.ToString();
+        SendToClient( JsonUtility.ToJson( m ), c );
     }
 
     void OnData(DataStreamReader stream, int i){
@@ -54,25 +59,25 @@ public class NetworkServer : MonoBehaviour
 
         switch(header.cmd){
             case Commands.HANDSHAKE:
-            HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
-            Debug.Log("Handshake message received!");
-            break;
+                HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
+                Debug.Log("[Server] Handshake message received! : " + hsMsg.player.id );
+                break;
             case Commands.PLAYER_UPDATE:
-            PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
-            Debug.Log("Player update message received!");
-            break;
+                PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
+                Debug.Log( "[Server] Player update message received!" );
+                break;
             case Commands.SERVER_UPDATE:
-            ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
-            Debug.Log("Server update message received!");
-            break;
+                ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
+                Debug.Log( "[Server] Server update message received!" );
+                break;
             default:
-            Debug.Log("Unrecognized message received!");
-            break;
+                Debug.Log( "[Server] Unrecognized message received!" );
+                break;
         }
     }
 
     void OnDisconnect(int i){
-        Debug.Log("Client disconnected from server");
+        Debug.Log( "[Server] Client disconnected from server" );
         m_Connections[i] = default(NetworkConnection);
     }
 

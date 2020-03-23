@@ -29,12 +29,12 @@ public class NetworkClient : MonoBehaviour
     }
 
     void OnConnect(){
-        Debug.Log("We are now connected to the server");
+        Debug.Log( "[Client] We are now connected to the server : " + m_Connection.InternalId );
 
-        //// Example to send a handshake message:
-        // HandshakeMsg m = new HandshakeMsg();
-        // m.player.id = m_Connection.InternalId.ToString();
-        // SendToServer(JsonUtility.ToJson(m));
+        // Example to send a handshake message:
+        //HandshakeMsg m = new HandshakeMsg();
+        //m.player.id = m_Connection.InternalId.ToString();
+        //SendToServer(JsonUtility.ToJson(m));
     }
 
     void OnData(DataStreamReader stream){
@@ -45,20 +45,20 @@ public class NetworkClient : MonoBehaviour
 
         switch(header.cmd){
             case Commands.HANDSHAKE:
-            HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
-            Debug.Log("Handshake message received!");
-            break;
+                HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
+                Debug.Log("[Client] Handshake message received!");
+                break;
             case Commands.PLAYER_UPDATE:
-            PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
-            Debug.Log("Player update message received!");
-            break;
+                PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
+                Debug.Log( "[Client] Player update message received!" );
+                break;
             case Commands.SERVER_UPDATE:
-            ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
-            Debug.Log("Server update message received!");
-            break;
+                ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
+                Debug.Log( "[Client] Server update message received!" );
+                break;
             default:
-            Debug.Log("Unrecognized message received!");
-            break;
+                Debug.Log( "[Client] Unrecognized message received!" );
+                break;
         }
     }
 
@@ -68,7 +68,7 @@ public class NetworkClient : MonoBehaviour
     }
 
     void OnDisconnect(){
-        Debug.Log("Client got disconnected from server");
+        Debug.Log("[Client] got disconnected from server");
         m_Connection = default(NetworkConnection);
     }
 
