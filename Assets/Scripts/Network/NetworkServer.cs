@@ -1,35 +1,79 @@
-﻿using System;
-
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Assertions;
-
 using Unity.Collections;
 using Unity.Networking.Transport;
+using NetworkMessages;
+using System;
+using System.Text;
 
 public class NetworkServer : MonoBehaviour
 {
-    public UdpNetworkDriver m_Driver;
+    public NetworkDriver m_Driver;
+    public ushort serverPort;
     private NativeList<NetworkConnection> m_Connections;
-    public ushort m_ServerPort = 12345;
-    PlayerUnitManager players = new PlayerUnitManager();
 
     void Start ()
     {
-        m_Driver = new UdpNetworkDriver(new INetworkParameter[0]);
+        m_Driver = NetworkDriver.Create();
         var endpoint = NetworkEndPoint.AnyIpv4;
-        endpoint.Port = m_ServerPort;
+        endpoint.Port = serverPort;
         if (m_Driver.Bind(endpoint) != 0)
-            Debug.Log("Failed to bind to port " + m_ServerPort );
+            Debug.Log("Failed to bind to port " + serverPort);
         else
             m_Driver.Listen();
 
         m_Connections = new NativeList<NetworkConnection>(16, Allocator.Persistent);
     }
-
+    void SendToServer(string message, NetworkConnection c){
+        var writer = m_Driver.BeginSend(NetworkPipeline.Null, c);
+        NativeArray<byte> bytes = new NativeArray<byte>(Encoding.ASCII.GetBytes(message),Allocator.Temp);
+        writer.WriteBytes(bytes);
+        m_Driver.EndSend(writer);
+    }
     public void OnDestroy()
     {
         m_Driver.Dispose();
         m_Connections.Dispose();
+    }
+
+    void OnConnect(NetworkConnection c){
+        m_Connections.Add(c);
+        Debug.Log("Accepted a connection");
+
+        //// Example to send a handshake message:
+        // HandshakeMsg m = new HandshakeMsg();
+        // m.player.id = c.InternalId.ToString();
+        // SendToServer(JsonUtility.ToJson(m),c);        
+    }
+
+    void OnData(DataStreamReader stream, int i){
+        NativeArray<byte> bytes = new NativeArray<byte>(stream.Length,Allocator.Temp);
+        stream.ReadBytes(bytes);
+        string recMsg = Encoding.ASCII.GetString(bytes.ToArray());
+        NetworkHeader header = JsonUtility.FromJson<NetworkHeader>(recMsg);
+
+        switch(header.cmd){
+            case Commands.HANDSHAKE:
+            HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
+            Debug.Log("Handshake message received!");
+            break;
+            case Commands.PLAYER_UPDATE:
+            PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
+            Debug.Log("Player update message received!");
+            break;
+            case Commands.SERVER_UPDATE:
+            ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
+            Debug.Log("Server update message received!");
+            break;
+            default:
+            Debug.Log("Unrecognized message received!");
+            break;
+        }
+    }
+
+    void OnDisconnect(int i){
+        Debug.Log("Client disconnected from server");
+        m_Connections[i] = default(NetworkConnection);
     }
 
     void Update ()
@@ -45,63 +89,36 @@ public class NetworkServer : MonoBehaviour
                 --i;
             }
         }
+
         // AcceptNewConnections
-        NetworkConnection c;
-        while ((c = m_Driver.Accept()) != default(NetworkConnection))
-        {
-            m_Connections.Add(c);
-            Debug.Log("Accepted a connection");
+        NetworkConnection c = m_Driver.Accept();
+        while (c  != default(NetworkConnection))
+        {            
+            OnConnect(c);
+
+            // Check if there is another new connection
+            c = m_Driver.Accept();
         }
 
         DataStreamReader stream;
         for (int i = 0; i < m_Connections.Length; i++)
         {
-            if (!m_Connections[i].IsCreated)
-                Assert.IsTrue(true);
-
+            Assert.IsTrue(m_Connections[i].IsCreated);
+            
             NetworkEvent.Type cmd;
-            while ((cmd = m_Driver.PopEventForConnection(m_Connections[i], out stream)) !=
-                   NetworkEvent.Type.Empty)
+            cmd = m_Driver.PopEventForConnection(m_Connections[i], out stream);
+            while (cmd != NetworkEvent.Type.Empty)
             {
-                if( cmd == NetworkEvent.Type.Connect )
+                if (cmd == NetworkEvent.Type.Data)
                 {
-                    Debug.Log( "Client connected from " + m_Connections[i].InternalId.ToString() );
-                    players.AddPlayer( m_Connections[i].InternalId );
-                }
-                else if (cmd == NetworkEvent.Type.Data)
-                {
-                    var readerCtx = default(DataStreamReader.Context);
-                    int numBytes = stream.GetBytesRead( ref readerCtx );
-                    byte[] bytes = stream.ReadBytesAsArray( ref readerCtx, numBytes );
-                    string jsonText = System.Text.Encoding.ASCII.GetString( bytes );
-                    Debug.Log("Got " + numBytes + " bytes from the Client : " + jsonText );
-                    PlayerInfoData playerInfo = JsonUtility.FromJson<PlayerInfoData>( jsonText );
-                    players.UpdatePlayer( playerInfo.id, playerInfo );
+                    OnData(stream, i);
                 }
                 else if (cmd == NetworkEvent.Type.Disconnect)
                 {
-                    Debug.Log("Client disconnected from server :" + m_Connections[i].InternalId.ToString() );
-                    players.RemovePlayer( m_Connections[i].InternalId );
-                    m_Connections[i] = default(NetworkConnection);
+                    OnDisconnect(i);
                 }
-            }
-        }
 
-        SendPlayersData();
-    }
-
-    void SendPlayersData()
-    {
-        var playersInfo = players.GetPlayersInfo();
-        if( playersInfo.Length > 0 )
-        {
-            string messageData = JsonUtility.ToJson( playersInfo );
-            Byte[] sendBytes = System.Text.Encoding.ASCII.GetBytes( messageData );
-            using( var writer = new DataStreamWriter( sendBytes.Length, Allocator.Temp ) )
-            {
-                writer.Write( sendBytes, sendBytes.Length );
-                for( int i = 0; i < m_Connections.Length; i++ )
-                    m_Connections[i].Send( m_Driver, writer );
+                cmd = m_Driver.PopEventForConnection(m_Connections[i], out stream);
             }
         }
     }
