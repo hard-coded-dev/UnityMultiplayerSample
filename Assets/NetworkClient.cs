@@ -9,9 +9,9 @@ public class NetworkClient : MonoBehaviour
 {
     public NetworkDriver m_Driver;
     public NetworkConnection m_Connection;
-    public string serverIP;
-    public ushort serverPort;
-
+    public string serverIP = "3.219.69.41";
+    public ushort serverPort = 12345;
+    float lastTimestamp;
     
     void Start ()
     {
@@ -27,6 +27,8 @@ public class NetworkClient : MonoBehaviour
         NativeArray<byte> bytes = new NativeArray<byte>(Encoding.ASCII.GetBytes(message),Allocator.Temp);
         writer.WriteBytes(bytes);
         m_Driver.EndSend(writer);
+
+        lastTimestamp = Time.time;
     }
 
     void OnConnect(){
@@ -116,11 +118,16 @@ public class NetworkClient : MonoBehaviour
     void SendLocalPlayerData()
     {
         UnitBase localPlayer = PlayerController.Instance.localPlayer;
-        if( localPlayer && PlayerController.Instance.IsDirtyFlag )
+        if( localPlayer )
         {
-            PlayerUpdateMsg puMsg = new PlayerUpdateMsg( localPlayer.GetPlayerData() );
-            SendToServer( JsonUtility.ToJson( puMsg ) );
-            PlayerController.Instance.ClearDirtyFlag();
+            // send data at least once in a second
+            if( PlayerController.Instance.IsDirtyFlag ||
+                ( Time.time - lastTimestamp > 2.0 ) )
+            {
+                PlayerUpdateMsg puMsg = new PlayerUpdateMsg( localPlayer.GetPlayerData() );
+                SendToServer( JsonUtility.ToJson( puMsg ) );
+                PlayerController.Instance.ClearDirtyFlag();
+            }
         }
     }
 }

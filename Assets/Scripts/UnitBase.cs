@@ -165,6 +165,10 @@ public class UnitBase : MonoBehaviour
         {
             agent.SetDestination( position );
         }
+        else
+        {
+            transform.position = position;
+        }
     }
 
     public void MoveBy( Vector3 direction )

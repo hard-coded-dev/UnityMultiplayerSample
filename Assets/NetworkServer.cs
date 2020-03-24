@@ -80,6 +80,7 @@ public class NetworkServer : MonoBehaviour
 
     void OnDisconnect(int i){
         Debug.Log( "[Server] Client disconnected from server" );
+        playersManager.RemovePlayer( m_Connections[i].InternalId );
         m_Connections[i] = default(NetworkConnection);
     }
 
@@ -93,6 +94,7 @@ public class NetworkServer : MonoBehaviour
             if (!m_Connections[i].IsCreated)
             {
                 m_Connections.RemoveAtSwapBack(i);
+                playersManager.RemovePlayer( m_Connections[i].InternalId );
                 --i;
             }
         }

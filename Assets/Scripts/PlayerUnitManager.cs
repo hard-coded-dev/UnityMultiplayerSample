@@ -61,7 +61,7 @@ public class PlayerUnitManager
     {
         if( playersDict.ContainsKey( id ) )
         {
-            return players[id];
+            return playersDict[id];
         }
         else
         {
