@@ -22,6 +22,7 @@ public class NetworkClient : MonoBehaviour
     }
     
     void SendToServer(string message){
+        Debug.Log( "[Client] Send message to server : " + message );
         var writer = m_Driver.BeginSend(m_Connection);
         NativeArray<byte> bytes = new NativeArray<byte>(Encoding.ASCII.GetBytes(message),Allocator.Temp);
         writer.WriteBytes(bytes);
@@ -46,7 +47,8 @@ public class NetworkClient : MonoBehaviour
         switch(header.cmd){
             case Commands.HANDSHAKE:
                 HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
-                Debug.Log("[Client] Handshake message received!");
+                Debug.Log("[Client] Handshake message received! " + hsMsg.player.id );
+                GameplayManager.Instance.SpawnPlayer( hsMsg.player, true );
                 break;
             case Commands.PLAYER_UPDATE:
                 PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
@@ -54,7 +56,8 @@ public class NetworkClient : MonoBehaviour
                 break;
             case Commands.SERVER_UPDATE:
                 ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
-                Debug.Log( "[Client] Server update message received!" );
+                Debug.Log( "[Client] Server update message received!" + suMsg.players.ToArrayString() );
+                GameplayManager.Instance.UpdatePlayers( suMsg.players );
                 break;
             default:
                 Debug.Log( "[Client] Unrecognized message received!" );
@@ -104,6 +107,20 @@ public class NetworkClient : MonoBehaviour
             }
 
             cmd = m_Connection.PopEvent(m_Driver, out stream);
+        }
+
+        SendLocalPlayerData();
+
+    }
+
+    void SendLocalPlayerData()
+    {
+        UnitBase localPlayer = PlayerController.Instance.localPlayer;
+        if( localPlayer && PlayerController.Instance.IsDirtyFlag )
+        {
+            PlayerUpdateMsg puMsg = new PlayerUpdateMsg( localPlayer.GetPlayerData() );
+            SendToServer( JsonUtility.ToJson( puMsg ) );
+            PlayerController.Instance.ClearDirtyFlag();
         }
     }
 }

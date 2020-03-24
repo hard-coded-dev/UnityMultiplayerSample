@@ -14,26 +14,27 @@ namespace NetworkMessages
     }
     [System.Serializable]
     public class HandshakeMsg:NetworkHeader{
-        public NetworkObjects.NetworkPlayer player;
-        public HandshakeMsg(){      // Constructor
+        public PlayerData player;
+        public HandshakeMsg( PlayerData data ){      // Constructor
             cmd = Commands.HANDSHAKE;
-            player = new NetworkObjects.NetworkPlayer();
+            player = data;
         }
     }
     [System.Serializable]
     public class PlayerUpdateMsg:NetworkHeader{
-        public NetworkObjects.NetworkPlayer player;
-        public PlayerUpdateMsg(){      // Constructor
+        public PlayerData player;
+        public PlayerUpdateMsg(PlayerData data ){      // Constructor
             cmd = Commands.PLAYER_UPDATE;
-            player = new NetworkObjects.NetworkPlayer();
+            player = data;
         }
     };
     [System.Serializable]
     public class  ServerUpdateMsg:NetworkHeader{
-        public List<NetworkObjects.NetworkPlayer> players;
-        public ServerUpdateMsg(){      // Constructor
+        public List<PlayerData> players;
+        public ServerUpdateMsg( List<PlayerData> data )
+        {      // Constructor
             cmd = Commands.SERVER_UPDATE;
-            players = new List<NetworkObjects.NetworkPlayer>();
+            players = data;
         }
     }
 } 
@@ -41,15 +42,18 @@ namespace NetworkMessages
 namespace NetworkObjects
 {
     [System.Serializable]
-    public class NetworkObject{
+    public class NetworkObject
+    {
         public string id;
     }
+
     [System.Serializable]
     public class NetworkPlayer : NetworkObject{
         public Color cubeColor;
+        public Vector3 position;
+        public Quaternion rotation;
 
         public NetworkPlayer(){
-            cubeColor = new Color();
         }
     }
 }

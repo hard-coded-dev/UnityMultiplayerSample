@@ -20,13 +20,10 @@ public enum PlayerCommand
 public class PlayerController : Singleton<PlayerController>
 {
     [HideInInspector] public UnitBase localPlayer;
-    [HideInInspector] public bool isLocalPlayer;
-    
-    public float moveSpeed;
-    public float angularSpeed;
 
     // messages to be sent to the server
     Queue<PlayerCommand> messageQueue = new Queue<PlayerCommand>();
+    public bool IsDirtyFlag { get; private set; }
 
     public void Awake()
     {
@@ -59,27 +56,37 @@ public class PlayerController : Singleton<PlayerController>
                 moveVector += curTransform.right;
             }
             if( moveVector != Vector3.zero )
+            {
                 localPlayer.MoveBy( moveVector );
+                IsDirtyFlag = true;
+            }
             else
                 localPlayer.StopMove();
 
             // mouse right drag
             if( Input.GetMouseButton( 1 ) )
             {
-                float rotation = Input.GetAxis( "Mouse X" ) * angularSpeed;
-                curTransform.Rotate( Vector3.up, rotation );
+                float axis = Input.GetAxis( "Mouse X" );
+                if( axis != 0.0 )
+                {
+                    float rotation = axis * localPlayer.angularSpeed;
+                    curTransform.Rotate( Vector3.up, rotation );
+                    IsDirtyFlag = true;
+                }
             }
             else
             {
                 if( Input.GetKey( KeyCode.Q ) )
                 {
-                    float rotation = Time.deltaTime * -angularSpeed;
+                    float rotation = Time.deltaTime * -localPlayer.angularSpeed;
                     curTransform.Rotate( Vector3.up, rotation );
+                    IsDirtyFlag = true;
                 }
                 else if( Input.GetKey( KeyCode.E ) )
                 {
-                    float rotation = Time.deltaTime * angularSpeed;
+                    float rotation = Time.deltaTime * localPlayer.angularSpeed;
                     curTransform.Rotate( Vector3.up, rotation );
+                    IsDirtyFlag = true;
                 }
             }
 
@@ -108,5 +115,10 @@ public class PlayerController : Singleton<PlayerController>
     public string PopMessage()
     {
         return messageQueue.Dequeue().ToString();
+    }
+
+    public void ClearDirtyFlag()
+    {
+        IsDirtyFlag = false;
     }
 }

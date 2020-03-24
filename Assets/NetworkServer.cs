@@ -12,6 +12,7 @@ public class NetworkServer : MonoBehaviour
     public NetworkDriver m_Driver;
     public ushort serverPort;
     private NativeList<NetworkConnection> m_Connections;
+
     private PlayerUnitManager playersManager;
 
     void Start ()
@@ -44,14 +45,14 @@ public class NetworkServer : MonoBehaviour
         m_Connections.Add(c);
         Debug.Log( "[Server] Accepted a connection : " + c.InternalId );
         playersManager.NewPlayer( c.InternalId );
+        PlayerData newPlayer = playersManager.GetPlayer( c.InternalId );
 
         // Example to send a handshake message:
-        HandshakeMsg m = new HandshakeMsg();
-        m.player.id = c.InternalId.ToString();
+        HandshakeMsg m = new HandshakeMsg( newPlayer );
         SendToClient( JsonUtility.ToJson( m ), c );
     }
 
-    void OnData(DataStreamReader stream, int i){
+    void OnData(DataStreamReader stream, int clientId){
         NativeArray<byte> bytes = new NativeArray<byte>(stream.Length,Allocator.Temp);
         stream.ReadBytes(bytes);
         string recMsg = Encoding.ASCII.GetString(bytes.ToArray());
@@ -64,7 +65,8 @@ public class NetworkServer : MonoBehaviour
                 break;
             case Commands.PLAYER_UPDATE:
                 PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
-                Debug.Log( "[Server] Player update message received!" );
+                Debug.Log( "[Server] Player update message received! : " + puMsg.player.ToString() );
+                playersManager.UpdatePlayer( clientId, puMsg.player );
                 break;
             case Commands.SERVER_UPDATE:
                 ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
@@ -116,7 +118,7 @@ public class NetworkServer : MonoBehaviour
             {
                 if (cmd == NetworkEvent.Type.Data)
                 {
-                    OnData(stream, i);
+                    OnData(stream, m_Connections[i].InternalId);
                 }
                 else if (cmd == NetworkEvent.Type.Disconnect)
                 {
@@ -125,6 +127,16 @@ public class NetworkServer : MonoBehaviour
 
                 cmd = m_Driver.PopEventForConnection(m_Connections[i], out stream);
             }
+        }
+
+        if( playersManager.IsDirtyFlag )
+        {
+            for( int i = 0; i < m_Connections.Length; i++ )
+            {
+                ServerUpdateMsg m = new ServerUpdateMsg( playersManager.GetPlayers() );
+                SendToClient( JsonUtility.ToJson( m ), m_Connections[i] );
+            }
+            playersManager.ClearDirtyFlag();
         }
     }
 }

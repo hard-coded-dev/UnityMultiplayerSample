@@ -4,7 +4,11 @@ using UnityEngine;
 
 public class PlayerUnitManager
 {
-    Dictionary<int, PlayerData> players = new Dictionary<int, PlayerData>();
+    List<PlayerData> players = new List<PlayerData>();
+    // have the dictionary for the quick access
+    Dictionary<int, PlayerData> playersDict = new Dictionary<int, PlayerData>();
+    // indicate whther to update a player information to the other clients
+    public bool IsDirtyFlag { get; private set; }
 
     public int NumPlayers
     {
@@ -13,9 +17,11 @@ public class PlayerUnitManager
 
     public void NewPlayer( int id )
     {
-        if( !players.ContainsKey( id ) )
+        if( !playersDict.ContainsKey( id ) )
         {
-            players.Add( id, new PlayerData( id ) );
+            var newPlayer = new PlayerData( id );
+            players.Add( newPlayer );
+            playersDict.Add( id, newPlayer );
         }
         else
         {
@@ -25,9 +31,10 @@ public class PlayerUnitManager
 
     public void RemovePlayer( int id )
     {
-        if( players.ContainsKey( id ) )
+        if( playersDict.ContainsKey( id ) )
         {
-            players.Remove( id );
+            players.Remove( playersDict[id] );
+            playersDict.Remove( id );
         }
         else
         {
@@ -37,9 +44,12 @@ public class PlayerUnitManager
 
     public void UpdatePlayer( int id, PlayerData data )
     {
-        if( players.ContainsKey( id ) )
+        if( playersDict.ContainsKey( id ) )
         {
-            players[id] = data;
+            int idx = players.IndexOf( playersDict[id] );
+            players[idx] = data;
+            playersDict[id] = data;
+            IsDirtyFlag = true;
         }
         else
         {
@@ -49,7 +59,7 @@ public class PlayerUnitManager
 
     public PlayerData GetPlayer( int id )
     {
-        if( players.ContainsKey( id ) )
+        if( playersDict.ContainsKey( id ) )
         {
             return players[id];
         }
@@ -59,4 +69,15 @@ public class PlayerUnitManager
             return null;
         }
     }
+
+    public void ClearDirtyFlag()
+    {
+        IsDirtyFlag = false;
+    }
+
+    public List<PlayerData>GetPlayers()
+    {
+        return players;
+    }
+
 }

@@ -18,23 +18,32 @@ public class UnitBase : MonoBehaviour
     /// </summary>
     public NavMeshAgent agent;
     public float moveSpeed;
+    public float angularSpeed;
 
     /// <summary>
     /// Identification
     /// </summary>
-    [HideInInspector] public int playerId;
-    [HideInInspector] public bool isLocalPlayer;
+    public bool IsLocalPlayer { get; set; }
+    public int PlayerId {
+        get
+        {
+            return playerInfo != null ? playerInfo.id : -1;
+        }
+    }
 
     /// <summary>
     /// Server side events
     /// </summary>
     // messages received from the server
+    public bool IsDirtyFlag { get; private set; }
+    PlayerData playerInfo;
     Queue<PlayerCommand> commandQueue = new Queue<PlayerCommand>();
 
     protected void OnEnable()
     {
         agent = GetComponent<NavMeshAgent>();
-        agent.speed = moveSpeed;
+        if( agent )
+            agent.speed = moveSpeed;
     }
 
     protected virtual void Awake()
@@ -48,12 +57,13 @@ public class UnitBase : MonoBehaviour
 
     public void Reset()
     {
+        IsDirtyFlag = false;
         model.SetActive( true );
     }   
 
     protected virtual void FixedUpdate()
     {
-        if( isLocalPlayer )
+        if( IsLocalPlayer )
         {
 
         }
@@ -96,25 +106,39 @@ public class UnitBase : MonoBehaviour
     #endregion
 
     #region User Data
-    public void SetUserId( int clientId, bool isLocal )
-    {
-        this.playerId = clientId;
-        if( unitUI )
-            unitUI.SetUserData( clientId, isLocal );
 
-        isLocalPlayer = isLocal;
-        if( isLocalPlayer )
+    public void SetPlayerData( PlayerData data, bool isLocal )
+    {
+        playerInfo = data;
+        if( unitUI )
+            unitUI.SetUserData( data.id, isLocal );
+
+        transform.position = data.position;
+        transform.rotation = data.rotation;
+        SetColor( data.color );
+
+        IsLocalPlayer = isLocal;
+        if( IsLocalPlayer )
         {
             Camera.main.transform.parent = cameraSpot.transform;
             Camera.main.transform.localPosition = Vector3.zero;
             Camera.main.transform.localRotation = Quaternion.identity;
         }
+
+        IsDirtyFlag = true;
     }
 
     public void SetColor( Color color )
     {
-        Material mat = GetComponent<Material>();
+        Material mat = model.GetComponent<Renderer>().material;
         mat.color = color;
+    }
+
+    public PlayerData GetPlayerData()
+    {
+        playerInfo.position = transform.position;
+        playerInfo.rotation = transform.rotation;
+        return playerInfo;
     }
 
     #endregion
@@ -148,6 +172,10 @@ public class UnitBase : MonoBehaviour
         if( agent )
         {
             agent.velocity = direction * moveSpeed;
+        }
+        else
+        {
+            transform.Translate( direction * moveSpeed, Space.World );
         }
     }
 

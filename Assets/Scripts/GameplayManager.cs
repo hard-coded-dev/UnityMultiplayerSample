@@ -8,6 +8,7 @@ public class GameplayManager : Singleton<GameplayManager>
     public int localPlayerId;
     public UnitBase playerPrefab;
     Dictionary<int, UnitBase> playerUnits = new Dictionary<int, UnitBase>();
+    Dictionary<int, PlayerData> playersData = new Dictionary<int, PlayerData>();
     Dictionary<int, PlayerData> prevPlayerData = new Dictionary<int, PlayerData>();
 
     // Start is called before the first frame update
@@ -31,8 +32,7 @@ public class GameplayManager : Singleton<GameplayManager>
         else
         {
             UnitBase player = Instantiate( playerPrefab );
-            player.transform.position = playerInfo.position;
-            player.SetUserId( playerInfo.id, isLocalPlayer );
+            player.SetPlayerData( playerInfo, isLocalPlayer );
             playerUnits.Add( playerInfo.id, player );
 
             if( isLocalPlayer )
@@ -73,6 +73,37 @@ public class GameplayManager : Singleton<GameplayManager>
             //{
             //    playerUnits[playerData.id].AddCommand( playerData.command );
             //}
+        }
+    }
+
+    public void UpdatePlayers( List<PlayerData> playersData )
+    {
+        foreach( var player in playersData )
+        {
+            if( playerUnits.ContainsKey( player.id ) )
+            {
+                if( player.id != localPlayerId )
+                {
+                    Vector3 nextPos = player.position;
+                    Quaternion nextRotation = player.rotation;
+                    if( CanvasManager.Instance.reconciliation.isOn )
+                    {
+                        // To be implemented
+                    }
+                    //if( CanvasManager.Instance.interpolation.isOn && prevPlayerData != null )
+                    //{
+                    //    nextPos = Vector3.Lerp( prevPlayerData.position, player.position, delta );
+                    //    nextRotation = Quaternion.Lerp( prevPlayerData.rotation, player.rotation, delta );
+                    //}
+
+                    playerUnits[player.id].MoveTo( nextPos );
+                    playerUnits[player.id].transform.rotation = nextRotation;
+                }
+            }
+            else
+            {
+                SpawnPlayer( player, false );
+            }
         }
     }
 

@@ -12,6 +12,12 @@ public class PlayerUI : MonoBehaviour
     public TextMeshProUGUI clientIdText;
     public Slider healthBar;
 
+    private void Awake()
+    {
+        if( healthBar )
+            healthBar.gameObject.SetActive( false );
+    }
+
     public void SetUserData( int clientId, bool isLocalPlayer )
     {
         if( clientIdText != null )
