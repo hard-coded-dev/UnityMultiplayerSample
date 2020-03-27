@@ -8,13 +8,13 @@ public class GameplayManager : Singleton<GameplayManager>
     public int localPlayerId;
     public UnitBase playerPrefab;
     Dictionary<int, UnitBase> playerUnits = new Dictionary<int, UnitBase>();
-    Dictionary<int, PlayerData> playersData = new Dictionary<int, PlayerData>();
-    Dictionary<int, PlayerData> prevPlayerData = new Dictionary<int, PlayerData>();
+    Dictionary<int, bool> playersUpdated = new Dictionary<int, bool>();
+    public float lastUpdatedTime;
+    public float prevUpdatedTime;
 
     // Start is called before the first frame update
     void Start()
     {
-        
     }
 
     // Update is called once per frame
@@ -42,69 +42,42 @@ public class GameplayManager : Singleton<GameplayManager>
             }
         }
     }
-
-    public void UpdatePlayer( PlayerData playerData, PlayerData prevPlayerData, float delta )
-    {
-        if( playerUnits.ContainsKey( playerData.id ) )
-        {
-            if( playerData.id != localPlayerId )
-            {
-                Vector3 nextPos = playerData.position;
-                Quaternion nextRotation = playerData.rotation;
-                if( CanvasManager.Instance.reconciliation.isOn )
-                {
-                    // To be implemented
-                }
-                if( CanvasManager.Instance.interpolation.isOn && prevPlayerData != null )
-                {
-                    nextPos = Vector3.Lerp( prevPlayerData.position, playerData.position, delta );
-                    nextRotation = Quaternion.Lerp( prevPlayerData.rotation, playerData.rotation, delta );
-                }
-
-                playerUnits[playerData.id].MoveTo( nextPos );
-                playerUnits[playerData.id].transform.rotation = nextRotation;
-            }
-            else
-            {
-                // PlayerController will change the transform directly by now.
-            }
-
-            //if( playerData.command != null && playerData.command != "" )
-            //{
-            //    playerUnits[playerData.id].AddCommand( playerData.command );
-            //}
-        }
-    }
-
+    
     public void UpdatePlayers( List<PlayerData> playersData )
     {
-        foreach( var player in playersData )
+        lastUpdatedTime = Time.time;
+        // 
+        foreach( var kv in playerUnits )
         {
-            if( playerUnits.ContainsKey( player.id ) )
+            kv.Value.IsLatestDataReceived = false;
+        }
+        foreach( var playerData in playersData )
+        {
+            if( playerUnits.ContainsKey( playerData.id ) )
             {
-                if( player.id != localPlayerId )
+                if( playerData.id != localPlayerId )
                 {
-                    Vector3 nextPos = player.position;
-                    Quaternion nextRotation = player.rotation;
-                    if( CanvasManager.Instance.reconciliation.isOn )
-                    {
-                        // To be implemented
-                    }
-                    //if( CanvasManager.Instance.interpolation.isOn && prevPlayerData != null )
-                    //{
-                    //    nextPos = Vector3.Lerp( prevPlayerData.position, player.position, delta );
-                    //    nextRotation = Quaternion.Lerp( prevPlayerData.rotation, player.rotation, delta );
-                    //}
-
-                    playerUnits[player.id].MoveTo( nextPos );
-                    playerUnits[player.id].transform.rotation = nextRotation;
+                    playerUnits[playerData.id].targetPosition = playerData.position;
+                    playerUnits[playerData.id].targetRotation = playerData.rotation;
                 }
             }
             else
             {
-                SpawnPlayer( player, false );
+                SpawnPlayer( playerData, false );
+            }
+            playerUnits[playerData.id].IsLatestDataReceived = true;
+        }
+        foreach( var kv in playerUnits )
+        {
+            if( kv.Value.IsLatestDataReceived == false )
+            {
+                // disconnect one player at a time
+                DisconnectPlayer( kv.Key );
+                break;
             }
         }
+
+        prevUpdatedTime = lastUpdatedTime;
     }
 
     public void DisconnectPlayer( int playerId )

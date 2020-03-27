@@ -20,6 +20,9 @@ public class UnitBase : MonoBehaviour
     public float moveSpeed;
     public float angularSpeed;
 
+    public Vector3? targetPosition;
+    public Quaternion? targetRotation;
+
     /// <summary>
     /// Identification
     /// </summary>
@@ -36,6 +39,8 @@ public class UnitBase : MonoBehaviour
     /// </summary>
     // messages received from the server
     public bool IsDirtyFlag { get; private set; }
+    // checks if the unit data is up to dated
+    public bool IsLatestDataReceived { get; set; }
     PlayerData playerInfo;
     Queue<PlayerCommand> commandQueue = new Queue<PlayerCommand>();
 
@@ -69,6 +74,43 @@ public class UnitBase : MonoBehaviour
         }
         else
         {
+            float delta = ( Time.time - GameplayManager.Instance.lastUpdatedTime ) / ( GameplayManager.Instance.lastUpdatedTime - GameplayManager.Instance.prevUpdatedTime );
+            if( targetPosition != null )
+            {
+                Vector3 targetPos = targetPosition.Value;
+                if( ( targetPos - transform.position ).sqrMagnitude > 0.02f )
+                {
+                    if( CanvasManager.Instance.interpolation.isOn )
+                        transform.position = Vector3.Lerp( transform.position, targetPos, delta );
+                    else
+                        transform.position = targetPosition.Value;
+                }
+                else
+                {
+                    targetPosition = null;
+                }
+            }
+            if( targetRotation != null )
+            {
+                Quaternion targetRot = targetRotation.Value;
+                
+                if( Quaternion.Angle( targetRot, transform.rotation ) > 1.0f )
+                {
+                    if( CanvasManager.Instance.interpolation.isOn )
+                    {
+                        transform.rotation = Quaternion.Lerp( transform.rotation, targetRot, delta );
+                    }
+                    else
+                    {
+                        transform.rotation = targetRotation.Value;
+                    }
+                }
+                else
+                {
+                    targetRotation = null;
+                }
+            }
+
             if( unitUI )
                 unitUI.gameObject.transform.rotation = Camera.main.transform.rotation;
         }
@@ -161,6 +203,7 @@ public class UnitBase : MonoBehaviour
 
     public void MoveTo( Vector3 position )
     {
+        targetPosition = position;
         if( agent )
         {
             agent.SetDestination( position );
